@@ -4,6 +4,7 @@ TARG=f7disk
 
 OFILES=\
 	main.o\
+	version.o\
 
 all: o.$(TARG)
 

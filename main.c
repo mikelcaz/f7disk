@@ -40,8 +40,7 @@ main(int argc, char **argv)
 				exit(1);
 		}
 	} else if (strcmp(argv[1], "tablebrief") == 0) {
-		//	show_part_table_brief(file);
-		not_implemented();
+		tablebrief(argc, argv);
 	} else if (strcmp(argv[1], "brief") == 0) {
 		//	show_f7_part_brief(file, part);
 		not_implemented();

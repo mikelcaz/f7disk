@@ -1,25 +1,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "u.h"
 #include "f7disk.h"
-
-typedef unsigned char uchar;
-typedef long long vlong;
-
-#ifndef nil
-	#define nil NULL
-#endif
-
-typedef struct {
-	int boot;
-	int type;
-	vlong start;
-	vlong size;
-} Entry;
+#include "ptable.h"
 
 static char const *strtype(int type);
 
@@ -31,31 +20,20 @@ tablebrief(int argc, char **argv)
 		exit(1);
 	}
 
-	int fd;
-	ssize_t n;
-	uchar mbr[512];
-	Entry entries[4];
+	PartEntry p[4];
 
-	fd = open(argv[2], O_CLOEXEC | O_RDONLY);
-	if (fd == -1) {
-		perror("Cannot open the requested device/image file");
-		exit(1);
-	}
-
-	n = read(fd, mbr, 512);
-	if (n != 512) {
-		if (n < 0)
-			perror("Cannot read the requested device/image file");
-		else
-			fprintf(stderr, "Cannot read a whole MBR (%zd byte/s read).\n", n);
-		exit(1);
-	}
-
-	close(fd);
-
-	if ((mbr[510] | (mbr[511] << 8)) != 0xAA55) {
-		fprintf(stderr, "Magic number (AA55h) not found.\n");
-		exit(1);
+	{
+		int fd;
+		fd = open(argv[2], O_CLOEXEC | O_RDONLY);
+		if (fd == -1) {
+			perror("Cannot open the requested device/image file");
+			exit(1);
+		}
+		if (!read_ptable(fd, p)) {
+			close(fd);
+			exit(1);
+		}
+		close(fd);
 	}
 
 	printf("# Boot Type %10s %10s %10s Description\n"
@@ -64,50 +42,120 @@ tablebrief(int argc, char **argv)
 		, "End"
 	);
 
-	for (int e = 0; e < 4; ++e) {
-		int addr = 0x1BE + e * 0x10;
-
-		entries[e].boot = mbr[addr++];
-		// Ignoring CHS start sector.
-		addr += 3;
-		entries[e].type = mbr[addr++];
-		// Ignoring CHS end sector.
-		addr += 3;
-		entries[e].start =
-			mbr[addr]
-			| (((vlong)mbr[addr + 1]) << 8)
-			| (((vlong)mbr[addr + 2]) << 16)
-			| (((vlong)mbr[addr + 3]) << 24);
-		addr += 4;
-		entries[e].size =
-			mbr[addr]
-			| (((vlong)mbr[addr + 1]) << 8)
-			| (((vlong)mbr[addr + 2]) << 16)
-			| (((vlong)mbr[addr + 3]) << 24);
-		// addr += 4;
-
+	for (int entry = 0; entry < 4; ++entry) {
 		printf("%d  %02Xh  %02Xh %10lld %10lld"
-			, e
-			, entries[e].boot
-			, entries[e].type
-			, entries[e].start
-			, entries[e].size
+			, entry
+			, p[entry].boot
+			, p[entry].type
+			, p[entry].start
+			, p[entry].size
 		);
 
-		if (0 < entries[e].size) {
-			printf(" %10lld", entries[e].start + (entries[e].size - 1));
+		if (0 < p[entry].size) {
+			printf(
+				" %10lld"
+				, p[entry].start + (p[entry].size - 1)
+			);
 		} else {
 			printf("%11s", "N/A");
 		}
 
 		{
-			char const *str = strtype(entries[e].type);
+			char const *str = strtype(p[entry].type);
 			if (str != nil)
 				printf(" %s", str);
 		}
 
 		printf("\n");
 	}
+}
+
+int
+read_ptable(int fd, PartEntry *p)
+{
+	ssize_t n;
+	uchar mbr[512];
+
+	errno = 0;
+	lseek(fd, 0, SEEK_SET);
+	if (errno != 0) {
+		perror("Could not seek the file offset to the beginning.\n");
+		return 0;
+	}
+
+	n = read(fd, mbr, 512);
+	if (n != 512) {
+		if (n < 0)
+			perror("Cannot read the requested device/image file");
+		else
+			fprintf(stderr, "Cannot read a whole MBR (%zd byte/s read).\n", n);
+		return 0;
+	}
+
+	if ((mbr[510] | (mbr[511] << 8)) != 0xAA55) {
+		fprintf(stderr, "Magic number (AA55h) not found.\n");
+		return 0;
+	}
+
+	for (int entry = 0; entry < 4; ++entry) {
+		int addr = 0x1BE + entry * 0x10;
+
+		p[entry].boot = mbr[addr++];
+		// Ignoring CHS start sector.
+		addr += 3;
+		p[entry].type = mbr[addr++];
+		// Ignoring CHS end sector.
+		addr += 3;
+		p[entry].start =
+			mbr[addr]
+			| (((vlong)mbr[addr + 1]) << 8)
+			| (((vlong)mbr[addr + 2]) << 16)
+			| (((vlong)mbr[addr + 3]) << 24);
+		addr += 4;
+		p[entry].size =
+			mbr[addr]
+			| (((vlong)mbr[addr + 1]) << 8)
+			| (((vlong)mbr[addr + 2]) << 16)
+			| (((vlong)mbr[addr + 3]) << 24);
+		// addr += 4;
+	}
+
+	// It is not assumed that partitions are ordered.
+	// Segmented addresses beyond the greatest LBA are OK.
+	// GPT protective MBR partitions are allowed to overlap.
+	for (int a = 0; a < (4 - 1); ++a) {
+		if (p[a].type != 0x00 && p[a].type != 0xEE)
+			continue;
+
+		for (int b = a + 1; b < 4; ++b)
+		if (
+			p[b].type != 0x00 && p[b].type != 0xEE
+			&& p[a].start < p[b].start + p[b].size
+			&& p[b].start < p[a].start + p[a].size
+		) {
+			fprintf(stderr, "Overlapping partitions detected.\n");
+			return 0;
+		}
+	}
+
+	errno = 0;
+	off_t size = lseek(fd, 0, SEEK_END) / 512;
+	if (errno != 0) {
+		perror("Could not retrieve the file size.\n");
+		return 0;
+	}
+
+	// GPT protective MBR partitions are allowed to exceed the disk size.
+	for (int i = 0; i < 4; ++i)
+		if (
+			p[i].type != 0x00 && p[i].type != 0xEE
+			&& size < p[i].start + p[i].size
+		) {
+			fprintf(stderr, "At least one partition is larger than the file.\n");
+			return 0;
+		}
+
+	return 1;
 }
 
 static char const *

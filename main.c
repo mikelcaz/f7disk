@@ -2,11 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "u.h"
 #include "f7disk.h"
-
-#ifndef nil
-	#define nil NULL
-#endif
 
 void show_version();
 static void not_implemented();
@@ -42,11 +39,10 @@ main(int argc, char **argv)
 	} else if (strcmp(argv[1], "tablebrief") == 0) {
 		tablebrief(argc, argv);
 	} else if (strcmp(argv[1], "brief") == 0) {
-		//	show_f7_part_brief(file, part);
 		not_implemented();
+		f7_brief(argc, argv);
 	} else if (strcmp(argv[1], "override") == 0) {
-		//	transform_into_f7_part(file, part, n, slotsize, offset, gap);
-		not_implemented();
+		f7_override(argc, argv);
 	} else if (strcmp(argv[1], "reset") == 0) {
 		//	reset_f7_part(file, part);
 		not_implemented();
@@ -66,14 +62,16 @@ usage()
 		"\ninfo commands: help, version"
 		"\ncommands for reading:"
 		"\n\ttablebrief <file> # Show a brief of the partition table."
-		"\n\tbrief [0-3] <file> # Show a brief of the F7h partition."
+		"\n\tbrief <file> <0-3> # Show a brief of the F7h partition."
 		"\ncommands for editing:"
-		"\n\toverride <0-3> <file> # Format a existing partition."
-		"\n\t\t--start <sector/units> # (Relative to the partition.)"
-		"\n\t\t[--gap <sectors/units>] # (Between slots.) It defaults to 0."
+		"\n\treset <file> <0-3> # Free the slots of a F7h partition (soft-reset)."
+		"\n\toverride <file> <0-3> ... # Format a existing partition."
 		"\n\t\t--n <1-16> # Number of image slots."
-		"\n\t\t[--slotsize <sectors/units>] # By default, as much as it can."
-		"\n\treset <0-3> <file> # Free the slots of a F7h partition (soft-reset)."
+		"\n\t\t[--first <sector/units>] # (Relative to the partition.)"
+		"\n\t\t{"
+		"\n\t\t--size <sectors/units> # By default, as much as it can."
+		"\n\t\t--every <sectors/units> # It defaults to the slot size."
+		"\n\t\t}"
 		"\n"
 		, name
 	);

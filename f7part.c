@@ -13,10 +13,11 @@
 
 typedef enum {
 	UNKNOWN = 0x0,
-	NSLOTS = 0x1,
-	FIRST = 0x2,
-	SIZE = 0x4,
-	EVERY = 0x8,
+	DRYRUN = 0x1,
+	NSLOTS = 0x2,
+	FIRST = 0x4,
+	SIZE = 0x8,
+	EVERY = 0x16,
 } Options;
 
 #define LBA_MAX (4LL * 1024 * 1024 * 1024 - 1) // (a.k.a. 2^32 - 1).
@@ -24,6 +25,8 @@ typedef enum {
 
 static vlong atolba(char *str);
 static long atol2(char *str);
+static void shortensectors(vlong sectors, vlong *n, int *unit);
+static char const *strunit(int unit);
 
 void
 f7_brief(int argc, char **argv)
@@ -48,24 +51,20 @@ f7_override(int argc, char **argv)
 	vlong size;
 	vlong every;
 
-	if (
-		argc < (4 + 2*1) || (4 + 2*4) < argc
-		|| argc % 2 != 0
-	) {
-		usage();
-		exit(1);
-	}
-
 	entry = atol2(argv[3]);
 	if (entry < 0 || 3 < entry) {
 		usage();
 		exit(1);
 	}
 
-	for (int i = 4; i < argc; i += 2) {
+	for (int i = 4; i < argc; i += 1) {
 		int o;
 
-		if (strcmp(argv[i], "-n") == 0) {
+		if (strcmp(argv[i], "--dry-run") == 0) {
+			o = DRYRUN;
+		} else if (argc <= i + 1) {
+			o = UNKNOWN;
+		} else if (strcmp(argv[i], "--slots") == 0) {
 			long ln;
 			o = NSLOTS;
 
@@ -95,6 +94,9 @@ f7_override(int argc, char **argv)
 			usage();
 			exit(1);
 		}
+		if (o != DRYRUN)
+			i += 1;
+
 		options |= o;
 	}
 
@@ -201,11 +203,22 @@ f7_override(int argc, char **argv)
 		exit(1);
 	} while (0);
 
-	// TODO: Remove printfs and actually override the partition.
-	printf("N = %d\n", n);
-	printf("First = %lld\n", first);
-	printf("Size = %lld\n", size);
-	printf("Every = %lld\n", every);
+	if ((options & DRYRUN) != 0) {
+		vlong v;
+		int unit;
+
+		printf("Slots = %d\n", n);
+		shortensectors(first, &v, &unit);
+		printf("First = +%lld%s\n", v, strunit(unit));
+		shortensectors(size, &v, &unit);
+		printf("Size = %lld%s\n", v, strunit(unit));
+		shortensectors(every, &v, &unit);
+		printf("Every = %lld%s\n", v, strunit(unit));
+		shortensectors(0, &v, &unit);
+
+		close(fd);
+		exit(0);
+	}
 
 	close(fd);
 }
@@ -301,4 +314,47 @@ atol2(char *str)
 	} while (0);
 
 	return n;
+}
+
+static void
+shortensectors(vlong sectors, vlong *n, int *unit)
+{
+	*n = sectors;
+	*unit = 0;
+
+	if (*n == 0)
+		return;
+
+	if (*n % 2 == 0) {
+		*n /= 2;
+		++*unit;
+	}
+
+	for (; *unit < 4 && *n != 0 && *n % 1024 == 0; ++*unit)
+		*n /= 1024;
+}
+
+static char const *
+strunit(int unit)
+{
+	char const * str;
+
+	switch (unit) {
+	case 1:
+		str = " KiB";
+		break;
+	case 2:
+		str = " MiB";
+		break;
+	case 3:
+		str = " GiB";
+		break;
+	case 4:
+		str = " TiB";
+		break;
+	default:
+		str = "";
+	}
+
+	return str;
 }

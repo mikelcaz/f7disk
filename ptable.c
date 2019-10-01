@@ -177,7 +177,7 @@ strtype(int type)
 		str = "Mark 1";
 		break;
 	default:
-		str = nil;
+		str = "";
 	}
 
 	return str;

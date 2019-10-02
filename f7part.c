@@ -14,10 +14,10 @@
 typedef enum {
 	UNKNOWN = 0x0,
 	DRYRUN = 0x1,
-	NSLOTS = 0x2,
+	SLOTS = 0x2,
 	FIRST = 0x4,
 	SIZE = 0x8,
-	EVERY = 0x16,
+	EVERY = 0x10,
 } Options;
 
 #define LBA_MAX (4LL * 1024 * 1024 * 1024 - 1) // (a.k.a. 2^32 - 1).
@@ -46,7 +46,7 @@ f7_override(int argc, char **argv)
 	vlong partsize;
 
 	int options = 0;
-	int n;
+	int count;
 	vlong first;
 	vlong size;
 	vlong every;
@@ -65,15 +65,15 @@ f7_override(int argc, char **argv)
 		} else if (argc <= i + 1) {
 			o = UNKNOWN;
 		} else if (strcmp(argv[i], "--slots") == 0) {
-			long ln;
-			o = NSLOTS;
+			long lcount;
+			o = SLOTS;
 
-			ln = atol2(argv[i + 1]);
-			if (ln < 1 || 16 < ln) {
+			lcount = atol2(argv[i + 1]);
+			if (lcount < 1 || 16 < lcount) {
 				usage();
 				exit(1);
 			}
-			n = ln;
+			count = lcount;
 		} else if (strcmp(argv[i], "--first") == 0) {
 			o = FIRST;
 			first = atolba(argv[i + 1]);
@@ -103,12 +103,12 @@ f7_override(int argc, char **argv)
 	if ((options & FIRST) == 0) {
 		first = 1;
 	}
-	if ((options & NSLOTS) == 0) {
+	if ((options & SLOTS) == 0) {
 		usage();
 		exit(1);
 	}
 
-	fd = open(argv[2], O_CLOEXEC | O_RDONLY);
+	fd = open(argv[2], O_CLOEXEC | O_RDWR);
 	if (fd == -1) {
 		perror("Cannot open the requested device/image file");
 		exit(1);
@@ -175,7 +175,7 @@ f7_override(int argc, char **argv)
 		size = every;
 	} else if ((options & (SIZE | EVERY)) != (SIZE | EVERY)) {
 		if ((options & SIZE) == 0)
-			size = partsize / n;
+			size = partsize / count;
 		every = size;
 	}
 
@@ -188,13 +188,13 @@ f7_override(int argc, char **argv)
 		else if (size < LBA_MAX - DIST_MAX && size + DIST_MAX < every)
 			fprintf(
 				stderr
-				, "'Every' cannot be greater than 'size' by more than 32 MiB.\n"
+				, "'Every' cannot be greater than 'size' by 32 MiB or more.\n"
 			);
-		else if (partsize < n * every)
+		else if (partsize < (count - 1) * every + size)
 			fprintf(
 				stderr
 				, "The partition is too small for %d slot/s.\n"
-				, n
+				, count
 			);
 		else
 			break;
@@ -207,7 +207,7 @@ f7_override(int argc, char **argv)
 		vlong v;
 		int unit;
 
-		printf("Slots = %d\n", n);
+		printf("Slots = %d\n", count);
 		shortensectors(first, &v, &unit);
 		printf("First = +%lld%s\n", v, strunit(unit));
 		shortensectors(size, &v, &unit);
@@ -218,6 +218,87 @@ f7_override(int argc, char **argv)
 
 		close(fd);
 		exit(0);
+	}
+
+	{
+		// This code assumes that LBA_MAX fits in the off_t type.
+
+		int i;
+		uchar header[24];
+		vlong padding = every - size;
+		ssize_t n;
+		uchar const type = 0xF7;
+
+		i = 0;
+		header[i++] = 0xF7; // Type
+		header[i++] = 0x00; // Version
+		header[i++] = 'S';
+		header[i++] = 'Y';
+		header[i++] = 'S';
+		header[i++] = 'I';
+		header[i++] = 'M';
+		header[i++] = 'G';
+
+		for (int j = 0; j < 4; ++j) {
+			header[i++] = (uchar)(first & 0xFF);
+			first = first >> 8;
+		}
+
+		for (int j = 0; j < 4; ++j) {
+			header[i++] = (uchar)(size & 0xFF);
+			size = size >> 8;
+		}
+
+		header[i++] = (uchar)(padding & 0xFF);
+		header[i++] = (uchar)(padding >> 8 & 0xFF);
+
+		header[i++] = 0; // reserved.
+		header[i++] = (uchar)(count - 1); // high nibble reserved.
+
+		header[i++] = 0; // reserved.
+		header[i++] = 0; // reserved.
+
+		// Slots usage bitmap.
+		header[i++] = 0;
+		header[i++] = 0;
+
+		if ((off_t)-1 == lseek(fd, 446 + 0x10 * entry + 4, SEEK_SET)) {
+			perror("Could not seek the file offset.");
+			close(fd);
+			exit(1);
+		}
+
+		n = write(fd, &type, 1);
+		do {
+			if (n < 0)
+				perror("Could not change the partition type");
+			else if (n != 1)
+				fprintf(stderr, "Error changing the partition type.\n");
+			else
+				break;
+
+			close(fd);
+			exit(1);
+		} while(0);
+
+		if ((off_t)-1 == lseek(fd, p[entry].start, SEEK_SET)) {
+			perror("Could not seek the file offset.");
+			close(fd);
+			exit(1);
+		}
+
+		n = write(fd, header, 24);
+		do {
+			if (n < 0)
+				perror("Could not write the F7h header");
+			else if (n != 24)
+				fprintf(stderr, "Error writing the F7h header (%zd bytes written).\n", n);
+			else
+				break;
+
+			close(fd);
+			exit(1);
+		} while(0);
 	}
 
 	close(fd);

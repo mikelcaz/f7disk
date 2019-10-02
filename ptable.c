@@ -1,6 +1,5 @@
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,10 +75,8 @@ read_ptable(int fd, PartEntry *p)
 	ssize_t n;
 	uchar mbr[512];
 
-	errno = 0;
-	lseek(fd, 0, SEEK_SET);
-	if (errno != 0) {
-		perror("Could not seek the file offset to the beginning.\n");
+	if ((off_t)-1 == lseek(fd, 0, SEEK_SET)) {
+		perror("Could not seek the file offset.");
 		return 0;
 	}
 
@@ -138,10 +135,9 @@ read_ptable(int fd, PartEntry *p)
 		}
 	}
 
-	errno = 0;
 	off_t size = lseek(fd, 0, SEEK_END) / 512;
-	if (errno != 0) {
-		perror("Could not retrieve the file size.\n");
+	if (size == (off_t)-1) {
+		perror("Could not retrieve the file size.");
 		return 0;
 	}
 

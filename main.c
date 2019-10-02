@@ -39,7 +39,6 @@ main(int argc, char **argv)
 	} else if (strcmp(argv[1], "tablebrief") == 0) {
 		tablebrief(argc, argv);
 	} else if (strcmp(argv[1], "brief") == 0) {
-		not_implemented();
 		f7_brief(argc, argv);
 	} else if (strcmp(argv[1], "override") == 0) {
 		f7_override(argc, argv);

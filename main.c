@@ -36,15 +36,21 @@ main(int argc, char **argv)
 			if (!help_mode)
 				exit(1);
 		}
+	} else if (strcmp(argv[1], "clear") == 0) {
+		not_implemented();
+		// f7_clear(argc, argv);
+	} else if (strcmp(argv[1], "load") == 0) {
+		not_implemented();
+		// f7_load(argc, argv);
 	} else if (strcmp(argv[1], "tablebrief") == 0) {
 		tablebrief(argc, argv);
 	} else if (strcmp(argv[1], "brief") == 0) {
 		f7_brief(argc, argv);
+	} else if (strcmp(argv[1], "reset") == 0) {
+		not_implemented();
+		// f7_reset(argc, argv);
 	} else if (strcmp(argv[1], "override") == 0) {
 		f7_override(argc, argv);
-	} else if (strcmp(argv[1], "reset") == 0) {
-		//	reset_f7_part(file, part);
-		not_implemented();
 	} else {
 		usage();
 		exit(1);
@@ -59,6 +65,9 @@ usage()
 		, "usage: %s <command>"
 		"\nunits: KiB, MiB, GiB, TiB"
 		"\ninfo commands: help, version"
+		"\nslots commands:"
+		"\n\tclear <file> <0-3> <0-15> # Free an active slot."
+		"\n\tload <file> <0-3> <0-15> <image> # Write an image to a free slot."
 		"\ncommands for reading:"
 		"\n\ttablebrief <file> # Show a brief of the partition table."
 		"\n\tbrief <file> <0-3> # Show a brief of the F7h partition."

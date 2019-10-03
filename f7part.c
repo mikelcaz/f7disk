@@ -20,9 +20,24 @@ typedef enum {
 	EVERY = 0x10,
 } Options;
 
+typedef struct {
+	int count;
+	uint bitmap;
+	vlong first;
+	vlong size;
+	vlong every;
+} MetaF7;
+
 #define LBA_MAX (4LL * 1024 * 1024 * 1024 - 1) // (a.k.a. 2^32 - 1).
 #define DIST_MAX (32LL * 1024 * 2 - 1) // (a.k.a. 2^16 - 1).
 
+static int f7_read_header(
+	int fd
+	, PartEntry const *p
+	, int entry
+	, uchar *header
+);
+static int f7_retrieve_meta(uchar *header, MetaF7 *meta);
 static vlong atolba(char *str);
 static long atol2(char *str);
 static void shortensectors(vlong sectors, vlong *n, int *unit);
@@ -31,20 +46,11 @@ static char const *strunit(int unit);
 void
 f7_brief(int argc, char **argv)
 {
-	// This code assumes that LBA_MAX fits in the off_t type.
-
-	int i;
 	int fd;
 	int entry;
 	PartEntry p[4];
 	uchar header[24];
-	ssize_t n;
-	uchar count;
-	vlong first;
-	vlong size;
-	vlong padding;
-	vlong every;
-	uint bitmap;
+	MetaF7 meta;
 
 	if (argc != 4) {
 		usage();
@@ -63,121 +69,39 @@ f7_brief(int argc, char **argv)
 		exit(1);
 	}
 
-	if (!read_ptable(fd, p)) {
+	if (
+		!read_ptable(fd, p)
+		|| !f7_read_header(fd, p, entry, header)
+	) {
 		close(fd);
 		exit(1);
 	}
-
-	if (p[entry].type != 0xF7) {
-		fprintf(stderr, "Not a F7h partition.\n");
-		close(fd);
-		exit(1);
-	}
-
-	if ((off_t)-1 == lseek(fd, p[entry].start, SEEK_SET)) {
-		perror("Could not seek the file offset.");
-		close(fd);
-		exit(1);
-	}
-
-	n = read(fd, header, 24);
-	do {
-		if (n < 0)
-			perror("Could not read the F7h header");
-		else if (n != 24)
-			fprintf(stderr, "Error reading the F7h header (%zd bytes read).\n", n);
-		else
-			break;
-
-		close(fd);
-		exit(1);
-	} while(0);
 	close(fd);
 
-	i = 0;
-	uchar type = header[i++];
-	uchar version = header[i++];
-
-	do {
-		if (type != 0xF7) { // Type
-			fprintf(stderr, "Header signature not found.\n");
-		} else if (
-			header[i++] != 'S'
-			|| header[i++] != 'Y'
-			|| header[i++] != 'S'
-			|| header[i++] != 'I'
-			|| header[i++] != 'M'
-			|| header[i++] != 'G'
-		) {
-			fprintf(stderr, "Unknown subtype.\n");
-		} else if (version != 0x00) {
-			fprintf(stderr, "Unknown version.\n");
-		} else {
-			break;
-		}
-
+	if (!f7_retrieve_meta(header, &meta))
 		exit(1);
-	} while (0);
-
-	first =
-		header[i]
-		| ((vlong)header[i + 1]) << 8
-		| ((vlong)header[i + 2]) << 16
-		| ((vlong)header[i + 3]) << 24
-	;
-	i += 4;
-
-	size =
-		header[i]
-		| ((vlong)header[i + 1]) << 8
-		| ((vlong)header[i + 2]) << 16
-		| ((vlong)header[i + 3]) << 24
-	;
-	i += 4;
-
-	padding =
-		header[i]
-		| ((vlong)header[i + 1]) << 8
-	;
-	i += 2;
-
-	i++; // reserved.
-
-	count = header[i++]; // high nibble reserved.
-	++count;
-
-	i++; // reserved.
-	i++; // reserved.
-
-	// Slots usage bitmap.
-	bitmap =
-		header[i]
-		| ((uint)header[i + 1]) << 8
-	;
-	i += 2;
-
-	every = size + padding;
 
 	{
+		int i;
 		vlong v;
 		int unit;
 		int active;
 
 		active = 0;
-		for (i = 0; i < count; ++i)
-			if (bitmap >> i & 0x1)
+		for (i = 0; i < meta.count; ++i)
+			if (meta.bitmap >> i & 0x1)
 				++active;
 		for (; i < 16; ++i)
-			if (bitmap >> i & 0x1)
+			if (meta.bitmap >> i & 0x1)
 				fprintf(stderr, "WARNING: Slot bit #%d set, but should be unused.\n", i);
 
-		printf("Active slots = %d/%d\n", active, count);
+		printf("Active slots = %d/%d\n", active, meta.count);
 		printf("Bitmap = %04X\n", 0);
-		shortensectors(first, &v, &unit);
+		shortensectors(meta.first, &v, &unit);
 		printf("First = +%lld%s\n", v, strunit(unit));
-		shortensectors(size, &v, &unit);
+		shortensectors(meta.size, &v, &unit);
 		printf("Size = %lld%s\n", v, strunit(unit));
-		shortensectors(every, &v, &unit);
+		shortensectors(meta.every, &v, &unit);
 		printf("Every = %lld%s\n", v, strunit(unit));
 	}
 }
@@ -446,6 +370,113 @@ f7_override(int argc, char **argv)
 	}
 
 	close(fd);
+}
+
+static int
+f7_read_header(int fd, PartEntry const *p, int entry, uchar *header)
+{
+	// This code assumes that LBA_MAX fits in the off_t type.
+
+	ssize_t n;
+
+	switch (p[entry].type) {
+	case 0xF7:
+		break;
+	case 0x00:
+		fprintf(stderr, "Disabled partition.\n");
+		return 0;
+	default:
+		fprintf(stderr, "Not a F7h partition.\n");
+		return 0;
+	}
+
+	if ((off_t)-1 == lseek(fd, p[entry].start, SEEK_SET)) {
+		perror("Could not seek the file offset.");
+		return 0;
+	}
+
+	n = read(fd, header, 24);
+	do {
+		if (n < 0)
+			perror("Could not read the F7h header");
+		else if (n != 24)
+			fprintf(stderr, "Error reading the F7h header (%zd bytes read).\n", n);
+		else
+			break;
+
+		return 0;
+	} while(0);
+	return 1;
+}
+
+static int f7_retrieve_meta(uchar *header, MetaF7 *meta)
+{
+	int i;
+	vlong padding;
+
+	i = 0;
+	uchar type = header[i++];
+	uchar version = header[i++];
+
+	do {
+		if (type != 0xF7) // Type
+			fprintf(stderr, "Header signature not found.\n");
+		else if (
+			header[i++] != 'S'
+			|| header[i++] != 'Y'
+			|| header[i++] != 'S'
+			|| header[i++] != 'I'
+			|| header[i++] != 'M'
+			|| header[i++] != 'G'
+		)
+			fprintf(stderr, "Unknown subtype.\n");
+		else if (version != 0x00)
+			fprintf(stderr, "Unknown version.\n");
+		else
+			break;
+
+		return 0;
+	} while(0);
+
+	meta->first =
+		header[i]
+		| ((vlong)header[i + 1]) << 8
+		| ((vlong)header[i + 2]) << 16
+		| ((vlong)header[i + 3]) << 24
+	;
+	i += 4;
+
+	meta->size =
+		header[i]
+		| ((vlong)header[i + 1]) << 8
+		| ((vlong)header[i + 2]) << 16
+		| ((vlong)header[i + 3]) << 24
+	;
+	i += 4;
+
+	padding =
+		header[i]
+		| ((vlong)header[i + 1]) << 8
+	;
+	i += 2;
+
+	i++; // reserved.
+
+	meta->count = header[i++]; // high nibble reserved.
+	++meta->count;
+
+	i++; // reserved.
+	i++; // reserved.
+
+	// Slots usage bitmap.
+	meta->bitmap =
+		header[i]
+		| ((uint)header[i + 1]) << 8
+	;
+	i += 2;
+
+	meta->every = meta->size + padding;
+	return 1;
 }
 
 static vlong

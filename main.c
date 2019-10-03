@@ -37,8 +37,7 @@ main(int argc, char **argv)
 				exit(1);
 		}
 	} else if (strcmp(argv[1], "clear") == 0) {
-		not_implemented();
-		// f7_clear(argc, argv);
+		f7_clear(argc, argv);
 	} else if (strcmp(argv[1], "load") == 0) {
 		not_implemented();
 		// f7_load(argc, argv);
@@ -47,8 +46,7 @@ main(int argc, char **argv)
 	} else if (strcmp(argv[1], "brief") == 0) {
 		f7_brief(argc, argv);
 	} else if (strcmp(argv[1], "reset") == 0) {
-		not_implemented();
-		// f7_reset(argc, argv);
+		f7_reset(argc, argv);
 	} else if (strcmp(argv[1], "override") == 0) {
 		f7_override(argc, argv);
 	} else {

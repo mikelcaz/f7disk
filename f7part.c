@@ -52,6 +52,72 @@ static void shortensectors(vlong sectors, vlong *n, int *unit);
 static char const *strunit(int unit);
 
 void
+f7_clear(int argc, char **argv)
+{
+	int fd;
+	int entry;
+	int slot;
+	PartEntry p[4];
+	uchar header[24];
+	MetaF7 meta;
+	uint bitmap;
+
+	if (argc != 5) {
+		usage();
+		exit(1);
+	}
+
+	entry = atol2(argv[3]);
+	slot = atol2(argv[4]);
+	if (
+		entry < 0 || 3 < entry
+		|| slot < 0 || 15 < slot
+	) {
+		usage();
+		exit(1);
+	}
+
+	fd = open(argv[2], O_CLOEXEC | O_RDWR);
+	if (fd == -1) {
+		perror("Cannot open the requested device/image file");
+		exit(1);
+	}
+
+	if (
+		!read_ptable(fd, p)
+		|| !f7_read_header(fd, p, entry, header)
+		|| !f7_retrieve_meta(header, &meta)
+	) {
+		close(fd);
+		exit(1);
+	}
+
+	bitmap = 0x1;
+	for (int i = 0; i < slot; ++i)
+		bitmap = bitmap << 1;
+	bitmap = ~bitmap & meta.bitmap & 0xFFFF;
+
+	do {
+		if (meta.count <= slot)
+			fprintf(stderr, "There is only %d slots.\n", meta.count);
+		else if (bitmap == meta.bitmap)
+			fprintf(stderr, "The slot #%d was already cleared.\n", slot);
+		else
+			break;
+
+		close(fd);
+		exit(1);
+	} while (0);
+
+	if (!f7_write_bitmap(fd, p, entry, bitmap)) {
+		close(fd);
+		exit(1);
+	}
+
+	close(fd);
+}
+
+void
 f7_brief(int argc, char **argv)
 {
 	int fd;
@@ -375,6 +441,47 @@ f7_override(int argc, char **argv)
 			close(fd);
 			exit(1);
 		} while(0);
+	}
+
+	close(fd);
+}
+
+void
+f7_reset(int argc, char **argv)
+{
+	int fd;
+	int entry;
+	PartEntry p[4];
+	uchar header[24];
+	MetaF7 meta;
+
+	if (argc != 4) {
+		usage();
+		exit(1);
+	}
+
+	entry = atol2(argv[3]);
+	if (entry < 0 || 3 < entry) {
+		usage();
+		exit(1);
+	}
+
+	fd = open(argv[2], O_CLOEXEC | O_RDWR);
+	if (fd == -1) {
+		perror("Cannot open the requested device/image file");
+		exit(1);
+	}
+
+	// The header and its meta struct are ignored.
+	// They are retrieved only to be sure it is possible.
+	if (
+		!read_ptable(fd, p)
+		|| !f7_read_header(fd, p, entry, header)
+		|| !f7_retrieve_meta(header, &meta)
+		|| !f7_write_bitmap(fd, p, entry, 0x00)
+	) {
+		close(fd);
+		exit(1);
 	}
 
 	close(fd);

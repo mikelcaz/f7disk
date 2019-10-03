@@ -38,6 +38,14 @@ static int f7_read_header(
 	, uchar *header
 );
 static int f7_retrieve_meta(uchar *header, MetaF7 *meta);
+// Do not change multiple bits at the same time
+// (the reset command is an exception).
+static int f7_write_bitmap(
+	int fd
+	, PartEntry const *p
+	, int entry
+	, uint bitmap
+);
 static vlong atolba(char *str);
 static long atol2(char *str);
 static void shortensectors(vlong sectors, vlong *n, int *unit);
@@ -476,6 +484,52 @@ static int f7_retrieve_meta(uchar *header, MetaF7 *meta)
 	i += 2;
 
 	meta->every = meta->size + padding;
+	return 1;
+}
+
+static int
+f7_write_bitmap(
+	int fd
+	, PartEntry const *p
+	, int entry
+	, uint bitmap
+)
+{
+	// This code assumes that LBA_MAX fits in the off_t type.
+
+	ssize_t n;
+	uchar buf[2];
+
+	switch (p[entry].type) {
+	case 0xF7:
+		break;
+	case 0x00:
+		fprintf(stderr, "Disabled partition.\n");
+		return 0;
+	default:
+		fprintf(stderr, "Not a F7h partition.\n");
+		return 0;
+	}
+
+	buf[0] = bitmap & 0xFF;
+	buf[1] = bitmap >> 8 & 0xFF;
+
+	if ((off_t)-1 == lseek(fd, p[entry].start + (24 - 2), SEEK_SET)) {
+		perror("Could not seek the file offset.");
+		return 0;
+	}
+
+	n = write(fd, buf, 2);
+	do {
+		if (n < 0)
+			perror("Could not update the slot bitmap");
+		else if (n != 2)
+			fprintf(stderr, "Error updating the slot bitmap (%zd bytes written).\n", n);
+		else
+			break;
+
+		return 0;
+	} while(0);
 	return 1;
 }
 

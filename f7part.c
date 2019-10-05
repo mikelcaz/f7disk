@@ -351,6 +351,11 @@ f7_override(int argc, char **argv)
 	vlong size;
 	vlong every;
 
+	if (argc < 4) {
+		usage();
+		exit(1);
+	}
+
 	entry = atol2(argv[3]);
 	if (entry < 0 || 3 < entry) {
 		usage();

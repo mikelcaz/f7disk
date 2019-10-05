@@ -190,13 +190,13 @@ f7_load(int argc, char **argv)
 		exit(1);
 	} while (0);
 
-	reqsectors = size / 512 + size % 512 != 0? 1: 0;
+	reqsectors = size / 512 + (size % 512 != 0? 1: 0);
 	if (meta.size < reqsectors) {
 		fprintf(
 			stderr
 			, "The size of the file exceeds the slot size (%jd > %lld).\n"
 			, size
-			, meta.size
+			, meta.size * 512
 		);
 
 		close(fd[1]);

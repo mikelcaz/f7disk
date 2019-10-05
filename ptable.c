@@ -76,7 +76,7 @@ read_ptable(int fd, PartEntry *p)
 	uchar mbr[512];
 
 	if ((off_t)-1 == lseek(fd, 0, SEEK_SET)) {
-		perror("Could not seek the file offset.");
+		perror("Could not seek the file offset");
 		return 0;
 	}
 
@@ -135,17 +135,18 @@ read_ptable(int fd, PartEntry *p)
 		}
 	}
 
-	off_t size = lseek(fd, 0, SEEK_END) / 512;
-	if (size == (off_t)-1) {
-		perror("Could not retrieve the file size.");
+	off_t sectors = lseek(fd, 0, SEEK_END);
+	if (sectors == (off_t)-1) {
+		perror("Could not retrieve the file size");
 		return 0;
 	}
+	sectors /= 512;
 
 	// GPT protective MBR partitions are allowed to exceed the disk size.
 	for (int i = 0; i < 4; ++i)
 		if (
 			p[i].type != 0x00 && p[i].type != 0xEE
-			&& size < p[i].start + p[i].size
+			&& sectors < p[i].start + p[i].size
 		) {
 			fprintf(stderr, "At least one partition is larger than the file.\n");
 			return 0;

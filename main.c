@@ -6,7 +6,6 @@
 #include "f7disk.h"
 
 void show_version();
-static void not_implemented();
 
 char const *name = "#?";
 
@@ -39,8 +38,7 @@ main(int argc, char **argv)
 	} else if (strcmp(argv[1], "clear") == 0) {
 		f7_clear(argc, argv);
 	} else if (strcmp(argv[1], "load") == 0) {
-		not_implemented();
-		// f7_load(argc, argv);
+		f7_load(argc, argv);
 	} else if (strcmp(argv[1], "tablebrief") == 0) {
 		tablebrief(argc, argv);
 	} else if (strcmp(argv[1], "brief") == 0) {
@@ -92,11 +90,4 @@ show_version()
 		" - Copyright © 2019 Mikel Cazorla Pérez, All Rights Reserved.\n"
 		, ver_x, ver_y, ver_z
 	);
-}
-
-static void
-not_implemented()
-{
-	fprintf(stderr, "Not implemented\n");
-	exit(1);
 }

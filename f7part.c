@@ -118,6 +118,163 @@ f7_clear(int argc, char **argv)
 }
 
 void
+f7_load(int argc, char **argv)
+{
+	// This code assumes that LBA_MAX fits in the off_t type.
+	// Also, it assumes that the max off_t value fits in the size_t type.
+
+	off_t size, reqsectors;
+	int fd[2];
+	int entry;
+	int slot;
+	PartEntry p[4];
+	uchar header[24];
+	MetaF7 meta;
+	uint bitmap;
+
+	if (argc != 6) {
+		usage();
+		exit(1);
+	}
+
+	entry = atol2(argv[3]);
+	slot = atol2(argv[4]);
+	if (
+		entry < 0 || 3 < entry
+		|| slot < 0 || 15 < slot
+	) {
+		usage();
+		exit(1);
+	}
+
+	fd[0] = open(argv[2], O_CLOEXEC | O_RDWR);
+	if (fd[0] == -1) {
+		perror("Cannot open the requested device/image file");
+		exit(1);
+	}
+	fd[1] = open(argv[5], O_CLOEXEC | O_RDONLY);
+	if (fd[1] == -1) {
+		perror("Cannot open the requested device/image file");
+		exit(1);
+	}
+
+	if (
+		!read_ptable(fd[0], p)
+		|| !f7_read_header(fd[0], p, entry, header)
+		|| !f7_retrieve_meta(header, &meta)
+	) {
+		close(fd[1]);
+		close(fd[0]);
+		exit(1);
+	}
+
+	bitmap = 0x1;
+	for (int i = 0; i < slot; ++i)
+		bitmap = bitmap << 1;
+	bitmap = (bitmap | meta.bitmap) & 0xFFFF;
+
+	do {
+		if (meta.count <= slot)
+			fprintf(stderr, "There is only %d slots.\n", meta.count);
+		else if (bitmap == meta.bitmap)
+			fprintf(stderr, "The slot #%d was already active.\n", slot);
+		else if ((size = lseek(fd[1], 0, SEEK_END)) == (off_t)-1)
+			perror("Could not retrieve the payload file size");
+		else if ((off_t)-1 == lseek(fd[1], 0, SEEK_SET))
+			perror("Could not seek the payload file offset");
+		else
+			break;
+
+		close(fd[1]);
+		close(fd[0]);
+		exit(1);
+	} while (0);
+
+	reqsectors = size / 512 + size % 512 != 0? 1: 0;
+	if (meta.size < reqsectors) {
+		fprintf(
+			stderr
+			, "The size of the file exceeds the slot size (%jd > %lld).\n"
+			, size
+			, meta.size
+		);
+
+		close(fd[1]);
+		close(fd[0]);
+		exit(1);
+	}
+
+	{
+		ssize_t n;
+		size_t count;
+		off_t rem;
+		struct stat statbuf;
+		uchar *buf;
+
+		do {
+			if (fstat(fd[0], &statbuf) < 0)
+				perror("Could not use stat over the file");
+			else if ((off_t)-1 == lseek(fd[0], (p[entry].start + meta.first + slot * meta.every) * 512, SEEK_SET))
+				perror("Could not seek the file offset");
+			else if ((buf = (uchar *)malloc(statbuf.st_blksize)) == nil)
+				fprintf(stderr, "Could not allocate the copy buffer.\n");
+			else
+				break;
+
+			close(fd[1]);
+			close(fd[0]);
+			exit(1);
+		} while (0);
+
+		rem = size;
+		while (0 < rem) {
+			if (statbuf.st_blksize < rem)
+				count = statbuf.st_blksize;
+			else
+				count = rem;
+
+			n = read(fd[1], buf, count);
+			if (0 < n && (size_t)n == count)
+				n = write(fd[0], buf, count);
+
+			do {
+				if (n < 0)
+					perror("Cannot keep copying the payload");
+				else if ((size_t)n < count)
+					fprintf(stderr, "Cannot keep copying the payload.\n");
+				else
+					break;
+
+				if (rem < size)
+					fprintf(
+						stderr
+						, "WARNING: %jd/%jd bytes were actually copied.\n"
+						, rem
+						, size
+					);
+
+				close(fd[1]);
+				close(fd[0]);
+				exit(1);
+			} while(0);
+
+			rem -= count;
+		}
+
+		free(buf);
+	}
+
+	if (!f7_write_bitmap(fd[0], p, entry, bitmap)) {
+		close(fd[1]);
+		close(fd[0]);
+		exit(1);
+	}
+
+	close(fd[1]);
+	close(fd[0]);
+}
+
+void
 f7_brief(int argc, char **argv)
 {
 	int fd;
@@ -170,7 +327,7 @@ f7_brief(int argc, char **argv)
 				fprintf(stderr, "WARNING: Slot bit #%d set, but should be unused.\n", i);
 
 		printf("Active slots = %d/%d\n", active, meta.count);
-		printf("Bitmap = %04X\n", 0);
+		printf("Bitmap = %04X\n", meta.bitmap);
 		shortensectors(meta.first, &v, &unit);
 		printf("First = +%lld%s\n", v, strunit(unit));
 		shortensectors(meta.size, &v, &unit);
@@ -423,7 +580,7 @@ f7_override(int argc, char **argv)
 			exit(1);
 		} while(0);
 
-		if ((off_t)-1 == lseek(fd, p[entry].start, SEEK_SET)) {
+		if ((off_t)-1 == lseek(fd, p[entry].start * 512, SEEK_SET)) {
 			perror("Could not seek the file offset.");
 			close(fd);
 			exit(1);
@@ -505,7 +662,7 @@ f7_read_header(int fd, PartEntry const *p, int entry, uchar *header)
 		return 0;
 	}
 
-	if ((off_t)-1 == lseek(fd, p[entry].start, SEEK_SET)) {
+	if ((off_t)-1 == lseek(fd, p[entry].start * 512, SEEK_SET)) {
 		perror("Could not seek the file offset.");
 		return 0;
 	}
@@ -621,7 +778,7 @@ f7_write_bitmap(
 	buf[0] = bitmap & 0xFF;
 	buf[1] = bitmap >> 8 & 0xFF;
 
-	if ((off_t)-1 == lseek(fd, p[entry].start + (24 - 2), SEEK_SET)) {
+	if ((off_t)-1 == lseek(fd, p[entry].start * 512 + (24 - 2), SEEK_SET)) {
 		perror("Could not seek the file offset.");
 		return 0;
 	}

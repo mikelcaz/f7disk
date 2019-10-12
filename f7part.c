@@ -195,9 +195,9 @@ f7_load(int argc, char **argv)
 	if (meta.size < reqsectors) {
 		fprintf(
 			stderr
-			, "The size of the file exceeds the slot size (%jd > %lld).\n"
-			, size
-			, meta.size * 512
+			, "The number of sectors to load exceed the slot capacity (%jd > %lld).\n"
+			, reqsectors
+			, meta.size
 		);
 
 		close(fd[1]);

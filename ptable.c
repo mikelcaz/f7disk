@@ -121,7 +121,7 @@ read_ptable(int fd, PartEntry *p)
 	// Segmented addresses beyond the greatest LBA are OK.
 	// GPT protective MBR partitions are allowed to overlap.
 	for (int a = 0; a < (4 - 1); ++a) {
-		if (p[a].type != 0x00 && p[a].type != 0xEE)
+		if (p[a].type == 0x00 || p[a].type == 0xEE)
 			continue;
 
 		for (int b = a + 1; b < 4; ++b)

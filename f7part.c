@@ -155,6 +155,7 @@ f7_load(int argc, char **argv)
 	fd[1] = open(argv[5], O_CLOEXEC | O_RDONLY);
 	if (fd[1] == -1) {
 		perror("Cannot open the requested device/image file");
+		close(fd[0]);
 		exit(1);
 	}
 

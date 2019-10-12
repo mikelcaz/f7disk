@@ -164,6 +164,36 @@ strtype(int type)
 	case 0x00:
 		str = "(disabled)";
 		break;
+	case 0x01:
+		str = "FAT-12";
+		break;
+	case 0x04:
+		str = "DOS 3.0 FAT-16 (< 32 MiB)";
+		break;
+	case 0x05:
+		str = "Extended";
+		break;
+	case 0x06:
+		str = "DOS 3.31 FAT-16";
+		break;
+	case 0x07:
+		str = "exFAT/HPFS/NTFS";
+		break;
+	case 0x0B:
+		str = "W95 FAT-32";
+		break;
+	case 0x0C:
+		str = "W95 FAT-32 (LBA)";
+		break;
+	case 0x0E:
+		str = "W95 FAT-16 (LBA)";
+		break;
+	case 0x0F:
+		str = "W95 Extended (LBA)";
+		break;
+	case 0x82:
+		str = "Linux swap";
+		break;
 	case 0x83:
 		str = "Linux";
 		break;

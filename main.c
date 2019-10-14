@@ -47,6 +47,8 @@ main(int argc, char **argv)
 		f7_reset(argc, argv);
 	} else if (strcmp(argv[1], "override") == 0) {
 		f7_override(argc, argv);
+	} else if (strcmp(argv[1], "cpboot") == 0) {
+		f7_cpboot(argc, argv);
 	} else {
 		usage();
 		exit(1);
@@ -58,16 +60,16 @@ usage()
 {
 	fprintf(
 		stderr
-		, "usage: %s <command>"
-		"\nunits: KiB, MiB, GiB, TiB"
-		"\ninfo commands: help, version"
-		"\nslots commands:"
+		, "Usage: %s <command>"
+		"\nUnits: KiB, MiB, GiB, TiB"
+		"\nInfo commands: help, version"
+		"\nSlot management:"
 		"\n\tclear <file> <0-3> <0-15> # Free an active slot."
 		"\n\tload <file> <0-3> <0-15> <image> # Write an image to a free slot."
-		"\ncommands for reading:"
+		"\nFor reading:"
 		"\n\ttablebrief <file> # Show a brief of the partition table."
 		"\n\tbrief <file> <0-3> # Show a brief of the F7h partition."
-		"\ncommands for editing:"
+		"\nFor editing:"
 		"\n\treset <file> <0-3> # Free the slots of a F7h partition (soft-reset)."
 		"\n\toverride <file> <0-3> ... # Format a existing partition."
 		"\n\t\t--slots <1-16> # Number of image slots."
@@ -77,6 +79,8 @@ usage()
 		"\n\t\t--size <sectors/units> # By default, as much as it can."
 		"\n\t\t--every <sectors/units> # It defaults to the slot size."
 		"\n\t\t}"
+		"\nBootloader:"
+		"\n\tcpboot <file> <bootloader> # The signature and the ptable are skipped."
 		"\n"
 		, name
 	);

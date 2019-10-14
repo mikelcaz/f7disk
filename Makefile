@@ -5,6 +5,7 @@ TARG=f7disk
 OFILES=\
 	main.o\
 	version.o\
+	boot.o\
 	f7part.o\
 	ptable.o\
 

@@ -9,3 +9,4 @@ void f7_load(int argc, char **argv);
 void f7_brief(int argc, char **argv);
 void f7_override(int argc, char **argv);
 void f7_reset(int argc, char **argv);
+void f7_cpboot(int argc, char **argv);

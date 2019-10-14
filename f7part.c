@@ -235,14 +235,17 @@ f7_load(int argc, char **argv)
 				count = rem;
 
 			n = read(fd[1], buf, count);
-			if (0 < n && (size_t)n == count)
+			if ((size_t)n == count) {
 				n = write(fd[0], buf, count);
+				if (0 < n)
+					rem -= n;
+			}
 
 			do {
 				if (n < 0)
-					perror("Cannot keep copying the payload");
+					perror("Could not copy the payload");
 				else if ((size_t)n < count)
-					fprintf(stderr, "Cannot keep copying the payload.\n");
+					fprintf(stderr, "Could not copy the payload.\n");
 				else
 					break;
 
@@ -254,12 +257,11 @@ f7_load(int argc, char **argv)
 						, size
 					);
 
+				free(buf);
 				close(fd[1]);
 				close(fd[0]);
 				exit(1);
 			} while(0);
-
-			rem -= count;
 		}
 
 		free(buf);

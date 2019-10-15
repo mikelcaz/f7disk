@@ -97,19 +97,15 @@ f7_clear(int argc, char **argv)
 		bitmap = bitmap << 1;
 	bitmap = ~bitmap & meta.bitmap & 0xFFFF;
 
-	do {
-		if (meta.count <= slot)
-			fprintf(stderr, "There is only %d slots.\n", meta.count);
-		else if (bitmap == meta.bitmap)
-			fprintf(stderr, "The slot #%d was already cleared.\n", slot);
-		else
-			break;
-
+	if (meta.count <= slot) {
+		fprintf(stderr, "There is only %d slot/s.\n", meta.count);
 		close(fd);
 		exit(1);
-	} while (0);
+	}
 
-	if (!f7_write_bitmap(fd, p, entry, bitmap)) {
+	if (bitmap == meta.bitmap) {
+		fprintf(stderr, "The slot #%d was already cleared.\n", slot);
+	} else if (!f7_write_bitmap(fd, p, entry, bitmap)) {
 		close(fd);
 		exit(1);
 	}

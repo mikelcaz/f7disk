@@ -1,3 +1,5 @@
+// Copyright © 2019 Mikel Cazorla Pérez — All Rights Reserved.
+
 typedef struct {
 	int boot;
 	int type;

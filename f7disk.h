@@ -1,3 +1,5 @@
+// Copyright © 2019 Mikel Cazorla Pérez — All Rights Reserved.
+
 extern int const ver_x;
 extern int const ver_y;
 extern int const ver_z;

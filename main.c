@@ -1,3 +1,5 @@
+// Copyright © 2019 Mikel Cazorla Pérez — All Rights Reserved.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

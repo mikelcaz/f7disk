@@ -1,3 +1,5 @@
+// Copyright © 2019 Mikel Cazorla Pérez — All Rights Reserved.
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

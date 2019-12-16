@@ -79,7 +79,7 @@ f7_clear(int argc, char **argv)
 		exit(1);
 	}
 
-	fd = open(argv[2], O_CLOEXEC | O_RDWR);
+	fd = open(argv[2], O_RDWR);
 	if (fd == -1) {
 		perror("Cannot open the requested device/image file");
 		exit(1);
@@ -145,12 +145,12 @@ f7_load(int argc, char **argv)
 		exit(1);
 	}
 
-	fd[0] = open(argv[2], O_CLOEXEC | O_RDWR);
+	fd[0] = open(argv[2], O_RDWR);
 	if (fd[0] == -1) {
 		perror("Cannot open the requested device/image file");
 		exit(1);
 	}
-	fd[1] = open(argv[5], O_CLOEXEC | O_RDONLY);
+	fd[1] = open(argv[5], O_RDONLY);
 	if (fd[1] == -1) {
 		perror("Cannot open the requested device/image file");
 		close(fd[0]);
@@ -295,7 +295,7 @@ f7_brief(int argc, char **argv)
 		exit(1);
 	}
 
-	fd = open(argv[2], O_CLOEXEC | O_RDONLY);
+	fd = open(argv[2], O_RDONLY);
 	if (fd == -1) {
 		perror("Cannot open the requested device/image file");
 		exit(1);
@@ -414,7 +414,7 @@ f7_override(int argc, char **argv)
 		exit(1);
 	}
 
-	fd = open(argv[2], O_CLOEXEC | O_RDWR);
+	fd = open(argv[2], O_RDWR);
 	if (fd == -1) {
 		perror("Cannot open the requested device/image file");
 		exit(1);
@@ -629,7 +629,7 @@ f7_reset(int argc, char **argv)
 		exit(1);
 	}
 
-	fd = open(argv[2], O_CLOEXEC | O_RDWR);
+	fd = open(argv[2], O_RDWR);
 	if (fd == -1) {
 		perror("Cannot open the requested device/image file");
 		exit(1);

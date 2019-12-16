@@ -25,7 +25,7 @@ tablebrief(int argc, char **argv)
 
 	{
 		int fd;
-		fd = open(argv[2], O_CLOEXEC | O_RDONLY);
+		fd = open(argv[2], O_RDONLY);
 		if (fd == -1) {
 			perror("Cannot open the requested device/image file");
 			exit(1);

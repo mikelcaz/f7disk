@@ -26,10 +26,10 @@ f7_cpboot(int argc, char **argv)
 		goto cleanup;
 	}
 
-	fd[0] = open(argv[2], O_CLOEXEC | O_RDWR);
+	fd[0] = open(argv[2], O_RDWR);
 	if (fd[0] == -1)
 		goto openerror;
-	fd[1] = open(argv[3], O_CLOEXEC | O_RDONLY);
+	fd[1] = open(argv[3], O_RDONLY);
 	if (fd[1] == -1)
 		goto openerror;
 

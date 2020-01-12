@@ -1,0 +1,20 @@
+f7disk is a command line utility
+for F7h (Mark 1) system partitions.
+Copyright © 2019-2020 Mikel Cazorla Pérez
+
+	f7disk is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 2 of the License.
+
+	f7disk is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+along with f7disk. If not, see <http://www.gnu.org/licenses/>.
+
+	Copyright years on f7disk (including source files)
+may be listed using range notation,
+indicating that every year in the range, inclusive,
+is a copyrightable year that could otherwise be listed individually.

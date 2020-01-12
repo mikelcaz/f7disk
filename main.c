@@ -1,4 +1,6 @@
-// Copyright © 2019 Mikel Cazorla Pérez — All Rights Reserved.
+// Copyright © 2019-2020 Mikel Cazorla Pérez
+// This file is part of f7disk,
+// licensed under the terms of GPLv2.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,7 +95,8 @@ show_version()
 {
 	printf(
 		"f7disk v%d.%d.%d"
-		" - Copyright © 2019 Mikel Cazorla Pérez, All Rights Reserved.\n"
+		" - Copyright © 2019-2020 Mikel Cazorla Pérez.\n"
+		"f7disk is released under the GPLv2.\n"
 		, ver_x, ver_y, ver_z
 	);
 }
